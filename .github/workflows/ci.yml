@@ -1,0 +1,428 @@
+name: Pacr CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: '22'
+  PYTHON_VERSION: '3.12'
+  JAVA_VERSION: '17'
+
+jobs:
+  # ====================
+  # Detect Changed Services
+  # ====================
+  detect-changes:
+    name: Detect Changed Services
+    runs-on: ubuntu-latest
+    outputs:
+      auth-service: ${{ steps.changes.outputs.auth-service }}
+      user-service: ${{ steps.changes.outputs.user-service }}
+      health-ingestion: ${{ steps.changes.outputs.health-ingestion }}
+      readiness-service: ${{ steps.changes.outputs.readiness-service }}
+      plan-service: ${{ steps.changes.outputs.plan-service }}
+      session-service: ${{ steps.changes.outputs.session-service }}
+      run-tracker: ${{ steps.changes.outputs.run-tracker }}
+      coach-service: ${{ steps.changes.outputs.coach-service }}
+      analytics-service: ${{ steps.changes.outputs.analytics-service }}
+      notification-service: ${{ steps.changes.outputs.notification-service }}
+      android: ${{ steps.changes.outputs.android }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            auth-service:
+              - 'services/auth-service/**'
+            user-service:
+              - 'services/user-service/**'
+            health-ingestion:
+              - 'services/health-ingestion/**'
+            readiness-service:
+              - 'services/readiness-service/**'
+            plan-service:
+              - 'services/plan-service/**'
+            session-service:
+              - 'services/session-service/**'
+            run-tracker:
+              - 'services/run-tracker/**'
+            coach-service:
+              - 'services/coach-service/**'
+            analytics-service:
+              - 'services/analytics-service/**'
+            notification-service:
+              - 'services/notification-service/**'
+            android:
+              - 'mobile/android/**'
+
+  # ====================
+  # Node.js Services
+  # ====================
+  node-services:
+    name: ${{ matrix.service }} - Lint & Test
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.auth-service == 'true' ||
+      needs.detect-changes.outputs.user-service == 'true' ||
+      needs.detect-changes.outputs.health-ingestion == 'true' ||
+      needs.detect-changes.outputs.readiness-service == 'true' ||
+      needs.detect-changes.outputs.session-service == 'true' ||
+      needs.detect-changes.outputs.run-tracker == 'true' ||
+      needs.detect-changes.outputs.analytics-service == 'true' ||
+      needs.detect-changes.outputs.notification-service == 'true'
+    strategy:
+      matrix:
+        service:
+          - auth-service
+          - user-service
+          - health-ingestion
+          - readiness-service
+          - session-service
+          - run-tracker
+          - analytics-service
+          - notification-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: services/${{ matrix.service }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: services/${{ matrix.service }}
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: services/${{ matrix.service }}
+        run: npm run lint
+
+      - name: Run Prettier
+        working-directory: services/${{ matrix.service }}
+        run: npm run format:check
+
+      - name: Run TypeScript type check
+        working-directory: services/${{ matrix.service }}
+        run: npm run type-check
+
+      - name: Run unit tests
+        working-directory: services/${{ matrix.service }}
+        run: npm test -- --coverage
+        env:
+          NODE_ENV: test
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: services/${{ matrix.service }}/coverage/lcov.info
+          flags: ${{ matrix.service }}
+          name: ${{ matrix.service }}
+
+  # ====================
+  # Python Services
+  # ====================
+  python-services:
+    name: ${{ matrix.service }} - Lint & Test
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.plan-service == 'true' ||
+      needs.detect-changes.outputs.coach-service == 'true'
+    strategy:
+      matrix:
+        service:
+          - plan-service
+          - coach-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: services/${{ matrix.service }}/requirements.txt
+
+      - name: Install dependencies
+        working-directory: services/${{ matrix.service }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run Ruff linter
+        working-directory: services/${{ matrix.service }}
+        run: ruff check .
+
+      - name: Run Black formatter check
+        working-directory: services/${{ matrix.service }}
+        run: black --check .
+
+      - name: Run MyPy type checker
+        working-directory: services/${{ matrix.service }}
+        run: mypy .
+
+      - name: Run pytest
+        working-directory: services/${{ matrix.service }}
+        run: pytest --cov=. --cov-report=xml --cov-report=term
+        env:
+          ENVIRONMENT: test
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: services/${{ matrix.service }}/coverage.xml
+          flags: ${{ matrix.service }}
+          name: ${{ matrix.service }}
+
+  # ====================
+  # Android App
+  # ====================
+  android:
+    name: Android - Lint & Test
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.android == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: 'gradle'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Make gradlew executable
+        working-directory: mobile/android
+        run: chmod +x ./gradlew
+
+      - name: Run ktlint
+        working-directory: mobile/android
+        run: ./gradlew ktlintCheck
+
+      - name: Run Android Lint
+        working-directory: mobile/android
+        run: ./gradlew lintDebug
+
+      - name: Run unit tests
+        working-directory: mobile/android
+        run: ./gradlew testDebugUnitTest
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-results
+          path: mobile/android/app/build/test-results/
+
+      - name: Upload lint results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-lint-results
+          path: mobile/android/app/build/reports/lint-results-debug.html
+
+  # ====================
+  # Build Docker Images
+  # ====================
+  build-images:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [node-services, python-services]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    strategy:
+      matrix:
+        service:
+          - auth-service
+          - user-service
+          - health-ingestion
+          - readiness-service
+          - plan-service
+          - session-service
+          - run-tracker
+          - coach-service
+          - analytics-service
+          - notification-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: services/${{ matrix.service }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ====================
+  # Security Scanning
+  # ====================
+  security-scan:
+    name: Security Scan - ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: build-images
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    strategy:
+      matrix:
+        service:
+          - auth-service
+          - user-service
+          - health-ingestion
+          - readiness-service
+          - plan-service
+          - session-service
+          - run-tracker
+          - coach-service
+          - analytics-service
+          - notification-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ghcr.io/${{ github.repository }}/${{ matrix.service }}:${{ github.ref_name }}-${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # ====================
+  # Integration Tests
+  # ====================
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [node-services, python-services]
+    services:
+      postgres:
+        image: timescale/timescaledb:latest-pg16
+        env:
+          POSTGRES_USER: pacr
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: pacr_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Run integration tests
+        run: |
+          echo "Integration tests would run here"
+          echo "Tests would verify service-to-service communication"
+        env:
+          DATABASE_URL: postgresql://pacr:test_password@localhost:5432/pacr_test
+          REDIS_URL: redis://localhost:6379
+
+  # ====================
+  # Deployment (Placeholder)
+  # ====================
+  deploy-dev:
+    name: Deploy to Dev Environment
+    runs-on: ubuntu-latest
+    needs: [build-images, security-scan, integration-tests]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    environment:
+      name: development
+      url: https://dev.pacr.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Dev
+        run: |
+          echo "Deployment to dev environment would happen here"
+          echo "This would typically update Kubernetes manifests or trigger ArgoCD"
+
+  deploy-staging:
+    name: Deploy to Staging Environment
+    runs-on: ubuntu-latest
+    needs: [build-images, security-scan, integration-tests]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: staging
+      url: https://staging.pacr.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Staging
+        run: |
+          echo "Deployment to staging environment would happen here"
+          echo "This would typically update Kubernetes manifests or trigger ArgoCD"
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://pacr.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Production
+        run: |
+          echo "Deployment to production would happen here"
+          echo "This requires manual approval and would update production cluster"

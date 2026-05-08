@@ -1,0 +1,35 @@
+{
+  "name": "pacr",
+  "version": "1.0.0",
+  "description": "Pacr - AI Running Coach monorepo",
+  "main": "index.js",
+  "scripts": {
+    "db:migrate": "node migrate.js up",
+    "db:migrate:down": "node migrate.js down",
+    "db:migrate:redo": "node migrate.js redo",
+    "db:seed": "node migrate.js up",
+    "db:verify": "node verify.js",
+    "db:reset": "node migrate.js down && node migrate.js up",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "running",
+    "ai",
+    "coach",
+    "training",
+    "health"
+  ],
+  "author": "Pacr Team",
+  "license": "PROPRIETARY",
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "fastify": "^5.0.0",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "node-pg-migrate": "^7.0.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
