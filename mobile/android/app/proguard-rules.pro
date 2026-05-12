@@ -1,0 +1,4 @@
+-keep class com.pacr.app.data.api.model.** { *; }
+-keepattributes *Annotation*
+-dontwarn okhttp3.**
+-dontwarn retrofit2.**

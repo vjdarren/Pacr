@@ -1,7 +1,7 @@
 # Pacr — AI Running Coach
 
 ## Stack
-- Android: Kotlin + Jetpack Compose, MVVM + Clean Architecture
+- Android: Kotlin + Jetpack Compose, MVVM + Clean Architecture, Health Connect API
 - Backend: Node.js 22 + Fastify v5 + TypeScript
 - AI Services: Python 3.12 + FastAPI + Anthropic Claude API
 - Database: PostgreSQL 16 + TimescaleDB, Redis 7, Apache Kafka
@@ -10,7 +10,7 @@
 ## Services & Ports
 - auth-service :3001 — JWT, OAuth, Huawei Account Kit SSO
 - user-service :3002 — profiles, preferences, subscription state
-- health-ingestion :3003 — Huawei Health webhook + batch ingest → Kafka
+- health-ingestion :3003 — Health Connect batch ingest → Kafka
 - readiness-service :3004 — daily readiness score (0–100) from HRV/sleep/RHR
 - plan-service :8001 — Python, training plan generation + adaptation (Claude Opus)
 - session-service :3006 — session CRUD, scheduling, completion tracking
@@ -18,6 +18,11 @@
 - coach-service :8002 — Python, conversational AI coaching (Claude Sonnet)
 - analytics-service :3009 — VO2Max trend, pace trend, race predictor
 - notification-service :3010 — FCM + HMS push, scheduled digests
+
+## Health Data Integration
+- Integration Point: Android Health Connect (`androidx.health.connect.client`)
+- Aggregates data from connected wearables: Garmin, Samsung, Fitbit, Huawei, Polar, and others.
+- Permissions: `android.permission.health.READ_HEART_RATE`, `READ_SLEEP`, `READ_HEART_RATE_VARIABILITY`, `READ_OXYGEN_SATURATION`, `READ_RESTING_HEART_RATE`, `READ_VO2_MAX`, `READ_STEPS`, `READ_DISTANCE`, `READ_EXERCISE`, `WRITE_EXERCISE`
 
 ## Database Conventions
 - UUIDs for all PKs, snake_case, soft deletes via deleted_at
