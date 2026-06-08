@@ -303,39 +303,41 @@ services:
     networks:
       - pacr-network
 
-#   notification-service:
-#     build:
-#       context: ./services/notification-service
-#       dockerfile: Dockerfile
-#     container_name: pacr-notification-service
-#     ports:
-#       - "3010:3010"
-#     environment:
-#       NODE_ENV: development
-#       PORT: 3010
-#       DATABASE_URL: postgresql://pacr:pacr_dev_password@postgres:5432/pacr_dev
-#       REDIS_URL: redis://:pacr_redis_password@redis:6379
-#       KAFKA_BROKERS: kafka:9092
-#       KAFKA_CLIENT_ID: notification-service
-#       KAFKA_GROUP_ID: notification-service-group
-#       FCM_SERVER_KEY: ${FCM_SERVER_KEY}
-#       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
-#       SMTP_PORT: ${SMTP_PORT:-587}
-#       SMTP_USER: ${SMTP_USER}
-#       SMTP_PASSWORD: ${SMTP_PASSWORD}
-#     depends_on:
-#       postgres:
-#         condition: service_healthy
-#       redis:
-#         condition: service_healthy
-#       kafka:
-#         condition: service_healthy
-#     volumes:
-#       - ./services/notification-service:/app
-#       - /app/node_modules
-#     command: npm run dev
-#     networks:
-#       - pacr-network
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: Dockerfile
+    container_name: pacr-notification-service
+    ports:
+      - "3010:3010"
+    environment:
+      NODE_ENV: development
+      PORT: 3010
+      DATABASE_URL: postgresql://pacr:pacr_dev_password@postgres:5432/pacr_dev
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_CLIENT_ID: notification-service
+      KAFKA_GROUP_ID: notification-service-group
+      FCM_SERVER_KEY: ${FCM_SERVER_KEY:-}
+      JWT_PUBLIC_KEY_PATH: /app/secrets/public.pem
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    volumes:
+      - ./services/notification-service:/app
+      - /app/node_modules
+      - ./services/auth-service/secrets:/app/secrets:ro
+    command: npm run dev
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3010/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pacr-network
 
   # ====================
   # Python AI Services
