@@ -1,7 +1,10 @@
 import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
+import { collectDefaultMetrics, register } from 'prom-client';
 import { appConfig } from './config';
 import { readinessRoutes } from './routes/readiness.routes';
+
+collectDefaultMetrics({ prefix: 'pacr_' });
 
 export const buildApp = async (): Promise<FastifyInstance> => {
   const app = Fastify({
@@ -25,6 +28,11 @@ export const buildApp = async (): Promise<FastifyInstance> => {
     version: '1.0.0',
     status: 'running',
   }));
+
+  app.get('/metrics', async (_, reply) => {
+    reply.header('Content-Type', register.contentType);
+    return reply.send(await register.metrics());
+  });
 
   app.setErrorHandler((error: Error & { statusCode?: number; code?: string }, request, reply) => {
     request.log.error(error);

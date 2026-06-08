@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'pacr-node-services'
+    static_configs:
+      - targets:
+          - 'auth-service:3001'
+          - 'user-service:3002'
+          - 'health-ingestion:3003'
+          - 'readiness-service:3004'
+          - 'session-service:3006'
+          - 'run-tracker:3007'
+          - 'analytics-service:3009'
+          - 'notification-service:3010'
+    metrics_path: '/metrics'
