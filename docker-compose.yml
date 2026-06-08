@@ -406,6 +406,32 @@ services:
       - pacr-network
 
   # ====================
+  # API Gateway
+  # ====================
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: pacr-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - auth-service
+      - user-service
+      - health-ingestion
+      - readiness-service
+      - session-service
+      - run-tracker
+      - plan-service
+      - coach-service
+      - analytics-service
+      - notification-service
+    restart: unless-stopped
+    networks:
+      - pacr-network
+
+  # ====================
   # Monitoring & Tools (Optional)
   # ====================
 
