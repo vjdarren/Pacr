@@ -22,6 +22,8 @@ exports.up = (pgm) => {
   // =====================================
   // USERS TABLE
   // =====================================
+  pgm.sql('DROP TABLE IF EXISTS users CASCADE;');
+
   pgm.createTable('users', {
     id: {
       type: 'uuid',
@@ -31,6 +33,13 @@ exports.up = (pgm) => {
     email: {
       type: 'varchar(255)',
       notNull: true,
+      unique: true,
+    },
+    password_hash: {
+      type: 'varchar(255)',
+    },
+    hms_open_id: {
+      type: 'varchar(255)',
       unique: true,
     },
     huawei_account_id: {
@@ -71,6 +80,14 @@ exports.up = (pgm) => {
       type: 'timestamptz',
       notNull: true,
       default: pgm.func('NOW()'),
+    },
+    updated_at: {
+      type: 'timestamptz',
+      notNull: true,
+      default: pgm.func('NOW()'),
+    },
+    deleted_at: {
+      type: 'timestamptz',
     },
   });
 

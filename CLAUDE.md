@@ -15,7 +15,7 @@
 - plan-service :8001 — Python, training plan generation + adaptation (Claude Opus)
 - session-service :3006 — session CRUD, scheduling, completion tracking
 - run-tracker :3007 — live GPS + HR stream, splits, offline-first
-- coach-service :8002 — Python, conversational AI coaching (Claude Sonnet)
+- coach-service :8002 — Python, conversational AI coaching (Gemini 2.5 Flash)
 - analytics-service :3009 — VO2Max trend, pace trend, race predictor
 - notification-service :3010 — FCM + HMS push, scheduled digests
 
@@ -49,9 +49,9 @@ coaching.message, plan.generated
 - Readiness <30 → rest day only, hide run CTA
 - AI coach never diagnoses injury — always refer to physiotherapist
 
-## Claude API Usage
-- Plan generation + post-run analysis: claude-opus-4-5
-- Real-time coaching: claude-sonnet-4-5
+## AI API Usage
+- Plan generation: algorithmic (Daniels VDOT engine, no LLM)
+- Real-time coaching: gemini-2.5-flash (Google Gemini)
 - Cache coach context in Redis, 5min TTL
 - Max conversation history: last 10 messages
 - Rate limit: 20 messages/day free, unlimited Pro

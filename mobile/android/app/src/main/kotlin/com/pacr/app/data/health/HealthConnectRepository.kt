@@ -271,7 +271,7 @@ class HealthConnectRepository @Inject constructor(
 
     // ---- Helpers ----
 
-    private suspend fun hasPermission(recordType: kotlin.reflect.KClass<*>): Boolean {
+    private suspend fun hasPermission(recordType: kotlin.reflect.KClass<out androidx.health.connect.client.records.Record>): Boolean {
         val permission = HealthPermission.getReadPermission(recordType)
         val granted = manager.getGrantedPermissions()
         return if (permission in granted) true else {
@@ -287,5 +287,22 @@ class HealthConnectRepository @Inject constructor(
             delay(2000L)
             block()
         }
+    }
+
+    suspend fun getRealtimeHeartRate(): Int? {
+        if (!hasPermission(HeartRateRecord::class)) return null
+        return runCatching {
+            val end = Instant.now()
+            val start = end.minus(30, ChronoUnit.SECONDS)
+            val samples = withRetry {
+                client.readRecords(
+                    ReadRecordsRequest(
+                        recordType = HeartRateRecord::class,
+                        timeRangeFilter = TimeRangeFilter.between(start, end),
+                    )
+                ).records.flatMap { it.samples }
+            }
+            samples.lastOrNull()?.beatsPerMinute?.toInt()
+        }.getOrElse { null }
     }
 }

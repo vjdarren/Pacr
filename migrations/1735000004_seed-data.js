@@ -14,6 +14,7 @@ exports.up = (pgm) => {
     INSERT INTO users (
       id,
       email,
+      password_hash,
       display_name,
       timezone,
       onboarding_complete,
@@ -23,6 +24,7 @@ exports.up = (pgm) => {
     ) VALUES (
       '${testUserId}',
       'test@pacr.app',
+      '$2b$12$GfHAOFIQyxDG4hlhp3clpO9sW0YgfaJBpZWJIqkmGCXVa6CQo3g6W',
       'Test Runner',
       'Europe/London',
       true,

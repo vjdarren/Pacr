@@ -21,11 +21,23 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "HEALTH_INGESTION_BASE_URL", "\"https://api.pacr.app/\"")
+        buildConfigField("String", "PLAN_SERVICE_BASE_URL", "\"https://api.pacr.app/\"")
+        buildConfigField("String", "AUTH_SERVICE_BASE_URL", "\"https://api.pacr.app/\"")
+        buildConfigField("String", "SESSION_SERVICE_BASE_URL", "\"https://api.pacr.app/\"")
+        buildConfigField("String", "READINESS_SERVICE_BASE_URL", "\"https://api.pacr.app/\"")
+        buildConfigField("String", "RUN_TRACKER_BASE_URL", "\"https://api.pacr.app/\"")
+        buildConfigField("String", "COACH_SERVICE_BASE_URL", "\"https://api.pacr.app/\"")
     }
 
     buildTypes {
         debug {
             buildConfigField("String", "HEALTH_INGESTION_BASE_URL", "\"http://10.0.2.2:3003/\"")
+            buildConfigField("String", "PLAN_SERVICE_BASE_URL", "\"http://10.0.2.2:8001/\"")
+            buildConfigField("String", "AUTH_SERVICE_BASE_URL", "\"http://10.0.2.2:3001/\"")
+            buildConfigField("String", "SESSION_SERVICE_BASE_URL", "\"http://10.0.2.2:3006/\"")
+            buildConfigField("String", "READINESS_SERVICE_BASE_URL", "\"http://10.0.2.2:3004/\"")
+            buildConfigField("String", "RUN_TRACKER_BASE_URL", "\"http://10.0.2.2:3007/\"")
+            buildConfigField("String", "COACH_SERVICE_BASE_URL", "\"http://10.0.2.2:8002/\"")
         }
         release {
             isMinifyEnabled = true
@@ -50,7 +62,7 @@ android {
 
 dependencies {
     // Health Connect
-    implementation("androidx.health.connect:connect-client:1.1.0-rc01")
+    implementation("androidx.health.connect:connect-client:1.1.0-alpha11")
 
     // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.9.1")
@@ -87,6 +99,15 @@ dependencies {
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    // Secure storage for auth tokens
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    // Location for run tracking
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+
+    // Material icons extended (Chat, Send, etc.)
+    implementation("androidx.compose.material:material-icons-extended")
 
     // Core
     implementation("androidx.core:core-ktx:1.13.1")

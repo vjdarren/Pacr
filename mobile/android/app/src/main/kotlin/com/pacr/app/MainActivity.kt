@@ -4,27 +4,33 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.navigation.compose.rememberNavController
+import com.pacr.app.data.datastore.OnboardingDataStore
+import com.pacr.app.data.datastore.TokenDataStore
 import com.pacr.app.data.health.HealthConnectManager
+import com.pacr.app.data.sync.HistoricalSyncManager
 import com.pacr.app.ui.health.HealthPermissionViewModel
-import com.pacr.app.ui.screen.HealthPermissionScreen
-import com.pacr.app.ui.screen.UnsupportedScreen
+import com.pacr.app.ui.navigation.PacrNavGraph
+import com.pacr.app.ui.theme.PacrColors
 import com.pacr.app.ui.theme.PacrTheme
 import dagger.hilt.android.AndroidEntryPoint
+import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Box
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    @Inject
-    lateinit var healthConnectManager: HealthConnectManager
+    @Inject lateinit var healthConnectManager: HealthConnectManager
+    @Inject lateinit var onboardingDataStore: OnboardingDataStore
+    @Inject lateinit var historicalSyncManager: HistoricalSyncManager
+    @Inject lateinit var tokenDataStore: TokenDataStore
 
     private val permissionViewModel: HealthPermissionViewModel by viewModels()
 
@@ -33,26 +39,23 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        checkSdkAvailability()
+        checkSdkAndPermissions()
+
         setContent {
             PacrTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background,
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(PacrColors.Bg)
                 ) {
-                    when (sdkAvailability) {
-                        HealthConnectManager.SdkAvailability.UNAVAILABLE -> UnsupportedScreen()
-                        HealthConnectManager.SdkAvailability.NOT_INSTALLED -> {
-                            // Prompt install — in production this would be a dedicated screen
-                            UnsupportedScreen()
-                        }
-                        HealthConnectManager.SdkAvailability.AVAILABLE -> {
-                            HealthPermissionScreen(
-                                onPermissionsGranted = { /* navigate to main app */ },
-                            )
-                        }
-                        null -> { /* splash / loading state */ }
-                    }
+                    val navController = rememberNavController()
+                    PacrNavGraph(
+                        navController = navController,
+                        sdkAvailability = sdkAvailability,
+                        onboardingDataStore = onboardingDataStore,
+                        historicalSyncManager = historicalSyncManager,
+                        tokenDataStore = tokenDataStore,
+                    )
                 }
             }
         }
@@ -60,20 +63,21 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Re-check both SDK status and permissions every time the user returns —
-        // they may have revoked permissions or installed Health Connect in the background.
-        checkSdkAvailability()
-        if (sdkAvailability == HealthConnectManager.SdkAvailability.AVAILABLE) {
-            permissionViewModel.refreshPermissions()
-        }
+        // Re-check SDK status and permissions every resume — the user may have
+        // installed Health Connect or revoked permissions while the app was backgrounded.
+        checkSdkAndPermissions()
     }
 
-    private fun checkSdkAvailability() {
+    private fun checkSdkAndPermissions() {
         val availability = healthConnectManager.checkAvailability()
         sdkAvailability = availability
 
-        if (availability == HealthConnectManager.SdkAvailability.NOT_INSTALLED) {
-            startActivity(healthConnectManager.getInstallIntent())
+        when (availability) {
+            HealthConnectManager.SdkAvailability.NOT_INSTALLED ->
+                startActivity(healthConnectManager.getInstallIntent())
+            HealthConnectManager.SdkAvailability.AVAILABLE ->
+                permissionViewModel.refreshPermissions()
+            else -> Unit
         }
     }
 }

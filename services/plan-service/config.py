@@ -14,10 +14,6 @@ class Settings(BaseSettings):
     kafka_client_id: str = "plan-service"
     kafka_group_id: str = "plan-service-group"
 
-    anthropic_api_key: str = ""
-    claude_model_plan_generation: str = "claude-opus-4-7-20251101"
-    claude_max_tokens: int = 4096
-
     @property
     def kafka_broker_list(self) -> list[str]:
         return self.kafka_brokers.split(",")
