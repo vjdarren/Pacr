@@ -7,32 +7,22 @@ import com.pacr.app.data.api.model.SyncRequest
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 private const val TAG = "HealthIngestionApiClient"
 
 @Singleton
-class HealthIngestionApiClient @Inject constructor() {
+class HealthIngestionApiClient @Inject constructor(
+    @Named("authenticated") okHttpClient: OkHttpClient,
+) {
 
     private val json = Json {
         ignoreUnknownKeys = true
         encodeDefaults = true
     }
-
-    private val okHttpClient = OkHttpClient.Builder()
-        .addInterceptor(
-            HttpLoggingInterceptor().apply {
-                level = if (BuildConfig.DEBUG) {
-                    HttpLoggingInterceptor.Level.BODY
-                } else {
-                    HttpLoggingInterceptor.Level.NONE
-                }
-            }
-        )
-        .build()
 
     private val api: HealthIngestionApi = Retrofit.Builder()
         .baseUrl(BuildConfig.HEALTH_INGESTION_BASE_URL)
