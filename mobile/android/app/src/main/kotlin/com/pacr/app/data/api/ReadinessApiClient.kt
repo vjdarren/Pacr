@@ -17,9 +17,8 @@ private const val TAG = "ReadinessApiClient"
 @Singleton
 class ReadinessApiClient @Inject constructor(
     @Named("authenticated") okHttpClient: OkHttpClient,
+    json: Json,
 ) {
-
-    private val json = Json { ignoreUnknownKeys = true }
 
     private val api: ReadinessApi = Retrofit.Builder()
         .baseUrl(BuildConfig.READINESS_SERVICE_BASE_URL)
@@ -28,9 +27,9 @@ class ReadinessApiClient @Inject constructor(
         .build()
         .create(ReadinessApi::class.java)
 
-    suspend fun getTodayReadiness(token: String, userId: String): ReadinessData? {
+    suspend fun getTodayReadiness(userId: String): ReadinessData? {
         return runCatching {
-            val response = api.getTodayReadiness("Bearer $token", userId)
+            val response = api.getTodayReadiness(userId)
             if (response.isSuccessful) response.body()?.data
             else { Log.w(TAG, "getTodayReadiness HTTP ${response.code()}"); null }
         }.getOrElse { e -> Log.e(TAG, "getTodayReadiness error", e); null }

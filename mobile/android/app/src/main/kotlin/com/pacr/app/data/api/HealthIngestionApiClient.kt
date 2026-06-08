@@ -17,12 +17,8 @@ private const val TAG = "HealthIngestionApiClient"
 @Singleton
 class HealthIngestionApiClient @Inject constructor(
     @Named("authenticated") okHttpClient: OkHttpClient,
+    json: Json,
 ) {
-
-    private val json = Json {
-        ignoreUnknownKeys = true
-        encodeDefaults = true
-    }
 
     private val api: HealthIngestionApi = Retrofit.Builder()
         .baseUrl(BuildConfig.HEALTH_INGESTION_BASE_URL)
@@ -31,9 +27,9 @@ class HealthIngestionApiClient @Inject constructor(
         .build()
         .create(HealthIngestionApi::class.java)
 
-    suspend fun sync(token: String, request: SyncRequest): Boolean {
+    suspend fun sync(request: SyncRequest): Boolean {
         return runCatching {
-            val response = api.syncMetrics("Bearer $token", request)
+            val response = api.syncMetrics(request)
             if (!response.isSuccessful) {
                 Log.w(TAG, "Sync failed: HTTP ${response.code()}")
             }
@@ -44,9 +40,9 @@ class HealthIngestionApiClient @Inject constructor(
         }
     }
 
-    suspend fun syncHistorical(token: String, request: SyncRequest): Boolean {
+    suspend fun syncHistorical(request: SyncRequest): Boolean {
         return runCatching {
-            val response = api.syncHistorical("Bearer $token", request)
+            val response = api.syncHistorical(request)
             if (!response.isSuccessful) {
                 Log.w(TAG, "Historical sync failed: HTTP ${response.code()}")
             }

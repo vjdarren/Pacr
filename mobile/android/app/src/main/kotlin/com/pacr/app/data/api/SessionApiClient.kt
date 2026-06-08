@@ -18,9 +18,8 @@ private const val TAG = "SessionApiClient"
 @Singleton
 class SessionApiClient @Inject constructor(
     @Named("authenticated") okHttpClient: OkHttpClient,
+    json: Json,
 ) {
-
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     private val api: SessionApi = Retrofit.Builder()
         .baseUrl(BuildConfig.SESSION_SERVICE_BASE_URL)
@@ -29,24 +28,24 @@ class SessionApiClient @Inject constructor(
         .build()
         .create(SessionApi::class.java)
 
-    suspend fun getTodaySession(token: String): TodaySessionData? {
+    suspend fun getTodaySession(): TodaySessionData? {
         return runCatching {
-            val response = api.getTodaySession("Bearer $token")
+            val response = api.getTodaySession()
             if (response.isSuccessful) response.body()?.data
             else { Log.w(TAG, "getTodaySession HTTP ${response.code()}"); null }
         }.getOrElse { e -> Log.e(TAG, "getTodaySession error", e); null }
     }
 
-    suspend fun completeSession(token: String, sessionId: String, runId: String? = null): Boolean {
+    suspend fun completeSession(sessionId: String, runId: String? = null): Boolean {
         return runCatching {
-            val response = api.completeSession("Bearer $token", sessionId, CompleteSessionRequest(runId))
+            val response = api.completeSession(sessionId, CompleteSessionRequest(runId))
             response.isSuccessful
         }.getOrElse { e -> Log.e(TAG, "completeSession error", e); false }
     }
 
-    suspend fun skipSession(token: String, sessionId: String): Boolean {
+    suspend fun skipSession(sessionId: String): Boolean {
         return runCatching {
-            val response = api.skipSession("Bearer $token", sessionId)
+            val response = api.skipSession(sessionId)
             response.isSuccessful
         }.getOrElse { e -> Log.e(TAG, "skipSession error", e); false }
     }

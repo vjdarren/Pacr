@@ -22,7 +22,7 @@ class HistoricalSyncManager @Inject constructor(
     private val repository: HealthConnectRepository,
     private val apiClient: HealthIngestionApiClient,
 ) {
-    suspend fun syncOnce(token: String) {
+    suspend fun syncOnce() {
         val now = Instant.now()
         val start = now.minus(HISTORICAL_DAYS.toLong(), ChronoUnit.DAYS)
 
@@ -63,7 +63,7 @@ class HistoricalSyncManager @Inject constructor(
 
         metrics.chunked(BATCH_SIZE).forEachIndexed { index, batch ->
             val payload = SyncRequest(batch.map(MetricMapper::toPayload))
-            val success = apiClient.syncHistorical(token, payload)
+            val success = apiClient.syncHistorical(payload)
             Log.d(TAG, "Batch $index: ${batch.size} records, success=$success")
         }
     }

@@ -8,6 +8,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -17,6 +18,11 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
+
+    @Provides
+    @Singleton
+    fun provideJson(): Json =
+        Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     @Provides
     @Singleton
@@ -30,7 +36,7 @@ object NetworkModule {
     @Singleton
     fun provideBearerInterceptor(tokenDataStore: TokenDataStore): Interceptor =
         Interceptor { chain ->
-            val token = runBlocking { tokenDataStore.getAccessToken() }
+            val token = runBlocking(kotlinx.coroutines.Dispatchers.IO) { tokenDataStore.getAccessToken() }
             val request = if (token != null) {
                 chain.request().newBuilder()
                     .header("Authorization", "Bearer $token")

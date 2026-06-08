@@ -20,8 +20,15 @@ class TokenAuthenticator @Inject constructor(
 
     private val mutex = Mutex()
 
+    private fun responseCount(response: Response): Int {
+        var count = 1
+        var prior = response.priorResponse
+        while (prior != null) { count++; prior = prior.priorResponse }
+        return count
+    }
+
     override fun authenticate(route: Route?, response: Response): Request? {
-        if (response.priorResponse?.code == 401) return null
+        if (responseCount(response) >= 2) return null
 
         return runBlocking {
             mutex.withLock {

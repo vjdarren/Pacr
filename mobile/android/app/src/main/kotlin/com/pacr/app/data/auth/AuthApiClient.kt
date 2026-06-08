@@ -13,9 +13,8 @@ import javax.inject.Singleton
 @Singleton
 class AuthApiClient @Inject constructor(
     @Named("auth") okHttpClient: OkHttpClient,
+    json: Json,
 ) {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
-
     val api: AuthApi = Retrofit.Builder()
         .baseUrl(BuildConfig.AUTH_SERVICE_BASE_URL)
         .client(okHttpClient)

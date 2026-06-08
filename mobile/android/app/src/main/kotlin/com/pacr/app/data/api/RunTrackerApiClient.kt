@@ -22,9 +22,8 @@ private const val TAG = "RunTrackerApiClient"
 @Singleton
 class RunTrackerApiClient @Inject constructor(
     @Named("authenticated") okHttpClient: OkHttpClient,
+    json: Json,
 ) {
-
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     private val api: RunTrackerApi = Retrofit.Builder()
         .baseUrl(BuildConfig.RUN_TRACKER_BASE_URL)
@@ -33,24 +32,23 @@ class RunTrackerApiClient @Inject constructor(
         .build()
         .create(RunTrackerApi::class.java)
 
-    suspend fun startRun(token: String, sessionId: String?): StartRunData? {
+    suspend fun startRun(sessionId: String?): StartRunData? {
         return runCatching {
-            val response = api.startRun("Bearer $token", StartRunRequest(sessionId))
+            val response = api.startRun(StartRunRequest(sessionId))
             if (response.isSuccessful) response.body()?.data
             else { Log.w(TAG, "startRun HTTP ${response.code()}"); null }
         }.getOrElse { e -> Log.e(TAG, "startRun error", e); null }
     }
 
-    suspend fun sendBatch(token: String, runId: String, samples: List<GpsSample>): Boolean {
+    suspend fun sendBatch(runId: String, samples: List<GpsSample>): Boolean {
         if (samples.isEmpty()) return true
         return runCatching {
-            val response = api.sendLocationBatch("Bearer $token", runId, LocationBatchRequest(samples))
+            val response = api.sendLocationBatch(runId, LocationBatchRequest(samples))
             response.isSuccessful
         }.getOrElse { e -> Log.e(TAG, "sendBatch error", e); false }
     }
 
     suspend fun completeRun(
-        token: String,
         runId: String,
         distanceKm: Double,
         durationSec: Int,
@@ -61,7 +59,7 @@ class RunTrackerApiClient @Inject constructor(
     ): RunRecord? {
         return runCatching {
             val response = api.completeRun(
-                "Bearer $token", runId,
+                runId,
                 CompleteRunRequest(distanceKm, durationSec, avgPaceSecKm, avgHrBpm, maxHrBpm, elevationGainM)
             )
             if (response.isSuccessful) response.body()?.data
@@ -69,9 +67,9 @@ class RunTrackerApiClient @Inject constructor(
         }.getOrElse { e -> Log.e(TAG, "completeRun error", e); null }
     }
 
-    suspend fun getRun(token: String, runId: String): RunRecord? {
+    suspend fun getRun(runId: String): RunRecord? {
         return runCatching {
-            val response = api.getRun("Bearer $token", runId)
+            val response = api.getRun(runId)
             if (response.isSuccessful) response.body()?.data
             else { Log.w(TAG, "getRun HTTP ${response.code()}"); null }
         }.getOrElse { e -> Log.e(TAG, "getRun error", e); null }

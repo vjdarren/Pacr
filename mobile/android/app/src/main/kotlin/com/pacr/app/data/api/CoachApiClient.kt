@@ -18,9 +18,8 @@ private const val TAG = "CoachApiClient"
 @Singleton
 class CoachApiClient @Inject constructor(
     @Named("authenticated") okHttpClient: OkHttpClient,
+    json: Json,
 ) {
-
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     private val api: CoachApi = Retrofit.Builder()
         .baseUrl(BuildConfig.COACH_SERVICE_BASE_URL)
@@ -31,9 +30,9 @@ class CoachApiClient @Inject constructor(
 
     data class SendResult(val reply: String, val remainingMessages: Int?)
 
-    suspend fun sendMessage(token: String, message: String): SendResult? {
+    suspend fun sendMessage(message: String): SendResult? {
         return runCatching {
-            val response = api.sendMessage("Bearer $token", CoachMessageRequest(message))
+            val response = api.sendMessage(CoachMessageRequest(message))
             if (response.isSuccessful) {
                 val body = response.body() ?: return@runCatching null
                 val reply = body.reply ?: return@runCatching null
@@ -45,9 +44,9 @@ class CoachApiClient @Inject constructor(
         }.getOrElse { e -> Log.e(TAG, "sendMessage error", e); null }
     }
 
-    suspend fun getHistory(token: String): List<CoachHistoryItem> {
+    suspend fun getHistory(): List<CoachHistoryItem> {
         return runCatching {
-            val response = api.getHistory("Bearer $token")
+            val response = api.getHistory()
             if (response.isSuccessful) response.body()?.messages ?: emptyList()
             else { Log.w(TAG, "getHistory HTTP ${response.code()}"); emptyList() }
         }.getOrElse { e -> Log.e(TAG, "getHistory error", e); emptyList() }

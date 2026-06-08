@@ -26,7 +26,6 @@ class BackgroundSyncWorker @AssistedInject constructor(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
-        val token = inputData.getString(KEY_TOKEN) ?: return Result.failure()
         val now = Instant.now()
         val since = now.minus(2, ChronoUnit.HOURS)
 
@@ -46,12 +45,9 @@ class BackgroundSyncWorker @AssistedInject constructor(
         }
 
         val payload = SyncRequest(metrics.map(MetricMapper::toPayload))
-        val success = apiClient.sync(token, payload)
+        val success = apiClient.sync(payload)
         Log.d(TAG, "Background sync: ${metrics.size} metrics, success=$success")
         return if (success) Result.success() else Result.retry()
     }
 
-    companion object {
-        const val KEY_TOKEN = "auth_token"
-    }
 }

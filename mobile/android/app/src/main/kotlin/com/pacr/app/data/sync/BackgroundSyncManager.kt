@@ -6,7 +6,6 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import androidx.work.workDataOf
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -18,7 +17,7 @@ class BackgroundSyncManager @Inject constructor(
 ) {
     private val workManager = WorkManager.getInstance(context)
 
-    fun schedule(token: String) {
+    fun schedule() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .setRequiresBatteryNotLow(true)
@@ -26,7 +25,6 @@ class BackgroundSyncManager @Inject constructor(
 
         val request = PeriodicWorkRequestBuilder<BackgroundSyncWorker>(2, TimeUnit.HOURS)
             .setConstraints(constraints)
-            .setInputData(workDataOf(BackgroundSyncWorker.KEY_TOKEN to token))
             .build()
 
         workManager.enqueueUniquePeriodicWork(

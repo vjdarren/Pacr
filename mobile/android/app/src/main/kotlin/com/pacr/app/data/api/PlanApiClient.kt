@@ -20,9 +20,8 @@ private const val TAG = "PlanApiClient"
 @Singleton
 class PlanApiClient @Inject constructor(
     @Named("authenticated") okHttpClient: OkHttpClient,
+    json: Json,
 ) {
-
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     private val api: PlanApi = Retrofit.Builder()
         .baseUrl(BuildConfig.PLAN_SERVICE_BASE_URL)
@@ -31,7 +30,7 @@ class PlanApiClient @Inject constructor(
         .build()
         .create(PlanApi::class.java)
 
-    suspend fun generatePlan(token: String, data: OnboardingData): Boolean {
+    suspend fun generatePlan(data: OnboardingData): Boolean {
         val targetDate = data.targetMonth?.atEndOfMonth()?.format(DateTimeFormatter.ISO_LOCAL_DATE)
             ?: return false
 
@@ -46,7 +45,7 @@ class PlanApiClient @Inject constructor(
             )
         )
         return runCatching {
-            val response = api.generatePlan("Bearer $token", request)
+            val response = api.generatePlan(request)
             if (!response.isSuccessful) Log.w(TAG, "Plan generation HTTP ${response.code()}")
             response.isSuccessful
         }.getOrElse { e ->

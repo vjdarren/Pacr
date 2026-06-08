@@ -20,7 +20,7 @@ class ForegroundSyncManager @Inject constructor(
     private val repository: HealthConnectRepository,
     private val apiClient: HealthIngestionApiClient,
 ) {
-    suspend fun sync(token: String) {
+    suspend fun sync() {
         val now = Instant.now()
         val since = now.minus(24, ChronoUnit.HOURS)
         val today = LocalDate.now(ZoneOffset.UTC)
@@ -56,7 +56,7 @@ class ForegroundSyncManager @Inject constructor(
         }
 
         val payload = SyncRequest(metrics.map(MetricMapper::toPayload))
-        val success = apiClient.sync(token, payload)
+        val success = apiClient.sync(payload)
         Log.d(TAG, "Foreground sync complete: ${metrics.size} metrics, success=$success")
     }
 }
