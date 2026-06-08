@@ -1,4 +1,3 @@
-version: '3.9'
 
 services:
   # ====================
@@ -18,7 +17,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./infrastructure/docker/init-db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pacr"]
+      test: ["CMD-SHELL", "pg_isready -U pacr -d pacr_dev"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -49,9 +48,6 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
-    volumes:
-      - zookeeper_data:/var/lib/zookeeper/data
-      - zookeeper_logs:/var/lib/zookeeper/log
     networks:
       - pacr-network
 
@@ -72,8 +68,6 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    volumes:
-      - kafka_data:/var/lib/kafka/data
     healthcheck:
       test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
       interval: 10s
@@ -138,16 +132,16 @@ services:
       NODE_ENV: development
       PORT: 3002
       DATABASE_URL: postgresql://pacr:pacr_dev_password@postgres:5432/pacr_dev
-      REDIS_URL: redis://:pacr_redis_password@redis:6379
-      AUTH_SERVICE_URL: http://auth-service:3001
+      JWT_PUBLIC_KEY_PATH: /app/secrets/public.pem
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+      auth-service:
+        condition: service_started
     volumes:
       - ./services/user-service:/app
       - /app/node_modules
+      - ./services/auth-service/secrets:/app/secrets:ro
     command: npm run dev
     networks:
       - pacr-network
@@ -165,8 +159,6 @@ services:
       DATABASE_URL: postgresql://pacr:pacr_dev_password@postgres:5432/pacr_dev
       KAFKA_BROKERS: kafka:9092
       KAFKA_CLIENT_ID: health-ingestion
-      HUAWEI_HEALTH_APP_ID: ${HUAWEI_HEALTH_APP_ID}
-      HUAWEI_HEALTH_APP_SECRET: ${HUAWEI_HEALTH_APP_SECRET}
     depends_on:
       postgres:
         condition: service_healthy
@@ -219,16 +211,24 @@ services:
       NODE_ENV: development
       PORT: 3006
       DATABASE_URL: postgresql://pacr:pacr_dev_password@postgres:5432/pacr_dev
+      REDIS_URL: redis://:pacr_redis_password@redis:6379
       KAFKA_BROKERS: kafka:9092
       KAFKA_CLIENT_ID: session-service
+      KAFKA_GROUP_ID: session-service-group
+      JWT_PUBLIC_KEY_PATH: /app/secrets/public.pem
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       kafka:
         condition: service_healthy
+      auth-service:
+        condition: service_started
     volumes:
       - ./services/session-service:/app
       - /app/node_modules
+      - ./services/auth-service/secrets:/app/secrets:ro
     command: npm run dev
     networks:
       - pacr-network
@@ -247,6 +247,7 @@ services:
       REDIS_URL: redis://:pacr_redis_password@redis:6379
       KAFKA_BROKERS: kafka:9092
       KAFKA_CLIENT_ID: run-tracker
+      JWT_PUBLIC_KEY_PATH: /app/secrets/public.pem
     depends_on:
       postgres:
         condition: service_healthy
@@ -254,9 +255,12 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      auth-service:
+        condition: service_started
     volumes:
       - ./services/run-tracker:/app
       - /app/node_modules
+      - ./services/auth-service/secrets:/app/secrets:ro
     command: npm run dev
     networks:
       - pacr-network
@@ -276,6 +280,7 @@ services:
       KAFKA_BROKERS: kafka:9092
       KAFKA_CLIENT_ID: analytics-service
       KAFKA_GROUP_ID: analytics-service-group
+      JWT_PUBLIC_KEY_PATH: /app/secrets/public.pem
     depends_on:
       postgres:
         condition: service_healthy
@@ -283,46 +288,54 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      auth-service:
+        condition: service_started
     volumes:
       - ./services/analytics-service:/app
       - /app/node_modules
+      - ./services/auth-service/secrets:/app/secrets:ro
     command: npm run dev
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3009/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - pacr-network
 
-  notification-service:
-    build:
-      context: ./services/notification-service
-      dockerfile: Dockerfile
-    container_name: pacr-notification-service
-    ports:
-      - "3010:3010"
-    environment:
-      NODE_ENV: development
-      PORT: 3010
-      DATABASE_URL: postgresql://pacr:pacr_dev_password@postgres:5432/pacr_dev
-      REDIS_URL: redis://:pacr_redis_password@redis:6379
-      KAFKA_BROKERS: kafka:9092
-      KAFKA_CLIENT_ID: notification-service
-      KAFKA_GROUP_ID: notification-service-group
-      FCM_SERVER_KEY: ${FCM_SERVER_KEY}
-      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER}
-      SMTP_PASSWORD: ${SMTP_PASSWORD}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    volumes:
-      - ./services/notification-service:/app
-      - /app/node_modules
-    command: npm run dev
-    networks:
-      - pacr-network
+#   notification-service:
+#     build:
+#       context: ./services/notification-service
+#       dockerfile: Dockerfile
+#     container_name: pacr-notification-service
+#     ports:
+#       - "3010:3010"
+#     environment:
+#       NODE_ENV: development
+#       PORT: 3010
+#       DATABASE_URL: postgresql://pacr:pacr_dev_password@postgres:5432/pacr_dev
+#       REDIS_URL: redis://:pacr_redis_password@redis:6379
+#       KAFKA_BROKERS: kafka:9092
+#       KAFKA_CLIENT_ID: notification-service
+#       KAFKA_GROUP_ID: notification-service-group
+#       FCM_SERVER_KEY: ${FCM_SERVER_KEY}
+#       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+#       SMTP_PORT: ${SMTP_PORT:-587}
+#       SMTP_USER: ${SMTP_USER}
+#       SMTP_PASSWORD: ${SMTP_PASSWORD}
+#     depends_on:
+#       postgres:
+#         condition: service_healthy
+#       redis:
+#         condition: service_healthy
+#       kafka:
+#         condition: service_healthy
+#     volumes:
+#       - ./services/notification-service:/app
+#       - /app/node_modules
+#     command: npm run dev
+#     networks:
+#       - pacr-network
 
   # ====================
   # Python AI Services
@@ -343,9 +356,6 @@ services:
       KAFKA_BROKERS: kafka:9092
       KAFKA_CLIENT_ID: plan-service
       KAFKA_GROUP_ID: plan-service-group
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      CLAUDE_MODEL_PLAN_GENERATION: claude-opus-4-5-20251101
-      CLAUDE_MAX_TOKENS: 4096
     depends_on:
       postgres:
         condition: service_healthy
@@ -374,10 +384,9 @@ services:
       KAFKA_BROKERS: kafka:9092
       KAFKA_CLIENT_ID: coach-service
       KAFKA_GROUP_ID: coach-service-group
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      CLAUDE_MODEL_COACHING: claude-sonnet-4-5-20250929
-      CLAUDE_MODEL_ANALYSIS: claude-opus-4-5-20251101
-      CLAUDE_MAX_TOKENS: 2048
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: gemini-2.5-flash
+      JWT_PUBLIC_KEY_PATH: /app/secrets/public.pem
     depends_on:
       postgres:
         condition: service_healthy
@@ -385,8 +394,11 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      auth-service:
+        condition: service_started
     volumes:
       - ./services/coach-service:/app
+      - ./services/auth-service/secrets:/app/secrets:ro
     command: uvicorn main:app --host 0.0.0.0 --port 8002 --reload
     networks:
       - pacr-network
@@ -428,8 +440,5 @@ networks:
 volumes:
   postgres_data:
   redis_data:
-  zookeeper_data:
-  zookeeper_logs:
-  kafka_data:
   # prometheus_data:
   # grafana_data:
