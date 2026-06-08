@@ -50,30 +50,32 @@ export class AnalyticsService {
 
     const [weeklyRes, streakRes, totalRes, sessionRes, targetRes] = await Promise.all([
       this.db.query(
-        `SELECT COALESCE(SUM(distance_meters)/1000, 0) as km
-         FROM runs.run_records
-         WHERE user_id = $1 AND started_at >= $2 AND deleted_at IS NULL`,
+        `SELECT COALESCE(SUM(distance_km), 0) as km
+         FROM run_records
+         WHERE user_id = $1 AND started_at >= $2`,
         [userId, weekStart.toISOString()],
       ),
       this.db.query(
         `SELECT COUNT(DISTINCT DATE(started_at)) as streak_days
-         FROM runs.run_records
-         WHERE user_id = $1 AND started_at >= NOW() - INTERVAL '30 days' AND deleted_at IS NULL`,
+         FROM run_records
+         WHERE user_id = $1 AND started_at >= NOW() - INTERVAL '30 days'`,
         [userId],
       ),
       this.db.query(
-        `SELECT COUNT(*) as total FROM runs.run_records WHERE user_id = $1 AND deleted_at IS NULL`,
+        `SELECT COUNT(*) as total FROM run_records WHERE user_id = $1`,
         [userId],
       ),
       this.db.query(
-        `SELECT COUNT(*) as completed FROM plans.training_sessions
-         WHERE user_id = $1 AND status = 'completed' AND scheduled_date >= $2 AND deleted_at IS NULL`,
+        `SELECT COUNT(*) as completed FROM training_sessions ts
+         JOIN training_plans tp ON tp.id = ts.plan_id
+         WHERE tp.user_id = $1 AND ts.status = 'completed' AND ts.scheduled_date >= $2`,
         [userId, weekStart.toISOString()],
       ),
       this.db.query(
-        `SELECT COUNT(*) as target FROM plans.training_sessions
-         WHERE user_id = $1 AND scheduled_date >= $2 AND scheduled_date < $2::date + INTERVAL '7 days'
-         AND session_type != 'rest' AND deleted_at IS NULL`,
+        `SELECT COUNT(*) as target FROM training_sessions ts
+         JOIN training_plans tp ON tp.id = ts.plan_id
+         WHERE tp.user_id = $1 AND ts.scheduled_date >= $2 AND ts.scheduled_date < $2::date + INTERVAL '7 days'
+         AND ts.session_type != 'rest'`,
         [userId, weekStart.toISOString()],
       ),
     ]);
@@ -98,7 +100,7 @@ export class AnalyticsService {
     const [vo2Rows, paceRows] = await Promise.all([
       this.db.query(
         `SELECT DATE_TRUNC('week', recorded_at) as week, AVG(value) as avg_value
-         FROM health.health_metrics
+         FROM health_metrics
          WHERE user_id = $1 AND metric_type = 'vo2max'
            AND recorded_at >= NOW() - INTERVAL '90 days'
          GROUP BY week ORDER BY week`,
@@ -106,10 +108,10 @@ export class AnalyticsService {
       ),
       this.db.query(
         `SELECT DATE_TRUNC('week', started_at) as week,
-                AVG(distance_meters / NULLIF(duration_seconds, 0) * 1000 / 60) as avg_pace_min_per_km
-         FROM runs.run_records
+                AVG(distance_km / NULLIF(duration_sec, 0) * 3600) as avg_pace_min_per_km
+         FROM run_records
          WHERE user_id = $1 AND started_at >= NOW() - INTERVAL '90 days'
-           AND distance_meters > 0 AND deleted_at IS NULL
+           AND distance_km > 0
          GROUP BY week ORDER BY week`,
         [userId],
       ),
@@ -136,7 +138,7 @@ export class AnalyticsService {
     if (cached) return JSON.parse(cached) as RacePredictor;
 
     const vo2Row = await this.db.query(
-      `SELECT value FROM health.health_metrics
+      `SELECT value FROM health_metrics
        WHERE user_id = $1 AND metric_type = 'vo2max'
        ORDER BY recorded_at DESC LIMIT 1`,
       [userId],
